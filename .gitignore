@@ -1,0 +1,31 @@
+node_modules/
+
+# Environment variables (templates: *.example stay committed)
+.env
+.env.*
+!.env.example
+!.env*.example
+
+dist/
+build/
+.next/
+out/
+*.log
+.DS_Store
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# Firebase / GCP credentials (never commit — use GOOGLE_APPLICATION_CREDENTIALS locally)
+**/fricker-service-account*.json
+**/*service-account*.json
+**/serviceAccount.json
+**/credentials.json
+**/*-firebase-adminsdk-*.json
+**/google-services.json
+**/GoogleService-Info.plist
+*.pem
+
+# Expo
+mobile/.expo/
+mobile/dist/

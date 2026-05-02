@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // All user-owned data lives under users/{userId}/...
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /friends/{friendId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /hangoutHistory/{historyId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /savedSuggestions/{suggestionId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /settings/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
