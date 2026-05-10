@@ -1,22 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SuggestionItem } from "@/types/suggestion";
+import type { SocialFriendEdge } from "@/types/social";
 
 const SWIPE_THRESHOLD_PX = 72;
 const EXIT_MS = 280;
 const SPRING_MS = 220;
 
-type SwipeDeckProps = {
-  card: SuggestionItem | null;
-  onPass: () => void;
-  /** Right swipe / primary action (e.g. choose for invite). */
-  onSwipeRight: () => Promise<void>;
-  rightLabel?: string;
+type SwipeFriendDeckProps = {
+  friend: SocialFriendEdge | null;
+  onSkip: () => void;
+  onChoose: () => Promise<void>;
   reducedMotion: boolean;
 };
 
-export function SwipeDeck({ card, onPass, onSwipeRight, rightLabel = "Choose", reducedMotion }: SwipeDeckProps) {
+export function SwipeFriendDeck({ friend, onSkip, onChoose, reducedMotion }: SwipeFriendDeckProps) {
   const [dragX, setDragX] = useState(0);
   const [exiting, setExiting] = useState<"left" | "right" | null>(null);
   const [springing, setSpringing] = useState(false);
@@ -25,29 +23,29 @@ export function SwipeDeck({ card, onPass, onSwipeRight, rightLabel = "Choose", r
   const exitHandledRef = useRef(false);
 
   useEffect(() => {
-    if (!card) {
+    if (!friend) {
       setDragX(0);
       setExiting(null);
       setSpringing(false);
     }
-  }, [card]);
+  }, [friend]);
 
   const finishLeft = useCallback(() => {
-    onPass();
+    onSkip();
     setExiting(null);
     setDragX(0);
-  }, [onPass]);
+  }, [onSkip]);
 
   const finishRight = useCallback(() => {
-    void onSwipeRight().finally(() => {
+    void onChoose().finally(() => {
       setExiting(null);
       setDragX(0);
     });
-  }, [onSwipeRight]);
+  }, [onChoose]);
 
   const commitDirection = useCallback(
     (dir: "left" | "right") => {
-      if (!card) return;
+      if (!friend) return;
       if (reducedMotion) {
         if (dir === "left") finishLeft();
         else void finishRight();
@@ -56,7 +54,7 @@ export function SwipeDeck({ card, onPass, onSwipeRight, rightLabel = "Choose", r
       exitHandledRef.current = false;
       setExiting(dir);
     },
-    [card, reducedMotion, finishLeft, finishRight],
+    [friend, reducedMotion, finishLeft, finishRight],
   );
 
   const onExitTransitionEnd = useCallback(
@@ -71,7 +69,7 @@ export function SwipeDeck({ card, onPass, onSwipeRight, rightLabel = "Choose", r
   );
 
   function onPointerDown(e: React.PointerEvent) {
-    if (!card || exiting) return;
+    if (!friend || exiting) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     activePointerRef.current = e.pointerId;
     startXRef.current = e.clientX;
@@ -79,12 +77,12 @@ export function SwipeDeck({ card, onPass, onSwipeRight, rightLabel = "Choose", r
   }
 
   function onPointerMove(e: React.PointerEvent) {
-    if (!card || exiting || activePointerRef.current !== e.pointerId) return;
+    if (!friend || exiting || activePointerRef.current !== e.pointerId) return;
     setDragX(e.clientX - startXRef.current);
   }
 
   function onPointerUp(e: React.PointerEvent) {
-    if (!card || exiting || activePointerRef.current !== e.pointerId) return;
+    if (!friend || exiting || activePointerRef.current !== e.pointerId) return;
     activePointerRef.current = null;
     const x = e.clientX - startXRef.current;
     if (x > SWIPE_THRESHOLD_PX) {
@@ -109,7 +107,7 @@ export function SwipeDeck({ card, onPass, onSwipeRight, rightLabel = "Choose", r
     }
   }
 
-  if (!card) return null;
+  if (!friend) return null;
 
   const rotate = reducedMotion ? 0 : dragX * 0.04;
   let transform: string;
@@ -129,6 +127,8 @@ export function SwipeDeck({ card, onPass, onSwipeRight, rightLabel = "Choose", r
       ? `transform ${reducedMotion ? 0 : exiting ? EXIT_MS : SPRING_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${reducedMotion ? 0 : exiting ? EXIT_MS : SPRING_MS}ms ease`
       : "none";
 
+  const { profile } = friend;
+
   return (
     <div className="mx-auto w-full max-w-md">
       <div
@@ -146,15 +146,10 @@ export function SwipeDeck({ card, onPass, onSwipeRight, rightLabel = "Choose", r
         }}
       >
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">{card.title}</h2>
-          <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{card.reason}</p>
-          <p className="mt-4 text-sm text-[var(--foreground)]">
-            {card.estimatedCost} · {card.estimatedDuration}
-          </p>
-          {(card.nearbyPlaces?.length ?? 0) > 0 ? (
-            <p className="mt-2 text-xs text-[var(--muted)]">{(card.nearbyPlaces ?? []).join(" · ")}</p>
-          ) : null}
-          <p className="mt-4 text-center text-xs text-[var(--muted)]">Drag or use the zones below</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Next up</p>
+          <h2 className="mt-1 text-lg font-semibold text-[var(--foreground)]">{profile.displayName}</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">@{profile.username}</p>
+          <p className="mt-4 text-center text-xs text-[var(--muted)]">Skip to rotate · Choose to plan with them</p>
         </div>
       </div>
 
@@ -173,7 +168,7 @@ export function SwipeDeck({ card, onPass, onSwipeRight, rightLabel = "Choose", r
           onClick={() => commitDirection("right")}
           disabled={!!exiting}
         >
-          {rightLabel}
+          Choose
         </button>
       </div>
     </div>

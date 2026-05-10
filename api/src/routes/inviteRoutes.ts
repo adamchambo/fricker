@@ -26,7 +26,12 @@ invitesRouter.post("/invites", async (req, res) => {
   try {
     const id = env.useMockData
       ? mock.mockCreateHangoutInvite(uid, parsed.data)
-      : await createHangoutInvite(uid, parsed.data.counterpartyUid, parsed.data.activity);
+      : await createHangoutInvite(
+          uid,
+          parsed.data.counterpartyUid,
+          parsed.data.activity,
+          parsed.data.message,
+        );
     res.status(201).json({ id });
   } catch (e: unknown) {
     res.status(400).json({ error: e instanceof Error ? e.message : "Failed" });

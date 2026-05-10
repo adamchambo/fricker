@@ -5,6 +5,8 @@
  *
  * Requires GOOGLE_APPLICATION_CREDENTIALS in .env (same as the API).
  * Optional: MOCK_SEED_PASSWORD (default MockPass123!) — use only for dev accounts.
+ *
+ * Re-run anytime to refresh `usersPublic` / `usersPrivate` (e.g. after expanding seed prefs).
  */
 import "dotenv/config";
 import { readFileSync } from "node:fs";

@@ -2,18 +2,26 @@ import { appendFriendEdgesToBottom, assertFriendship } from "./graph.js";
 import type { SuggestionItem } from "../../schemas/suggestion.js";
 import { db } from "../firebase-admin.js";
 
-export async function createHangoutInvite(fromUid: string, toUid: string, activity: SuggestionItem): Promise<string> {
+export async function createHangoutInvite(
+  fromUid: string,
+  toUid: string,
+  activity: SuggestionItem,
+  message?: string,
+): Promise<string> {
   const ok = await assertFriendship(fromUid, toUid);
   if (!ok) throw new Error("Not friends with this user");
   const now = new Date().toISOString();
-  const ref = await db.collection("hangoutInvites").add({
+  const payload: Record<string, unknown> = {
     fromUid,
     toUid,
     activity,
     status: "pending",
     createdAt: now,
     updatedAt: now,
-  });
+  };
+  const trimmed = message?.trim();
+  if (trimmed) payload.message = trimmed;
+  const ref = await db.collection("hangoutInvites").add(payload);
   return ref.id;
 }
 

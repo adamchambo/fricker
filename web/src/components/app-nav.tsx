@@ -11,6 +11,7 @@ const links = [
   { href: "/dashboard/friends", label: "Friends" },
   { href: "/dashboard/profile", label: "Profile" },
   { href: "/dashboard/swipe", label: "Swipe" },
+  { href: "/dashboard/invites", label: "Invites" },
   { href: "/dashboard/history", label: "History" },
   { href: "/dashboard/saved", label: "Saved" },
 ];

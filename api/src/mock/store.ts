@@ -1,14 +1,14 @@
 import type { HangoutHistoryCreate } from "../schemas/history.js";
 import type { HangoutPrefsFields } from "../schemas/hangoutPrefs.js";
-import type { HangoutInviteDoc } from "../schemas/hangoutInvite.js";
 import type { SavedSuggestionCreate } from "../schemas/savedSuggestion.js";
 import type { UsersPublicDoc } from "../schemas/usersPublic.js";
-import { friendshipId, friendRequestDocId } from "../services/social/ids.js";
+import { friendshipId } from "../services/social/ids.js";
 import {
   MOCK_FRIEND_FIXTURES,
   defaultViewerPrefs,
   defaultViewerPublic,
 } from "./fixtures.js";
+import { seedDemoInboxInviteForViewer } from "./mock-invites-store.js";
 import { MOCK_UIDS } from "./uids.js";
 
 const T0 = "2025-01-15T12:00:00.000Z";
@@ -35,7 +35,6 @@ export type MockSession = {
   history: HistoryRow[];
   saved: SavedRow[];
   friendRequests: FriendRequestRow[];
-  hangoutInvites: HangoutInviteDoc[];
 };
 
 const sessions = new Map<string, MockSession>();
@@ -113,10 +112,10 @@ function seedSession(viewerUid: string): MockSession {
     history,
     saved,
     friendRequests: [],
-    hangoutInvites: [],
   };
 
   sessions.set(viewerUid, session);
+  seedDemoInboxInviteForViewer(viewerUid, friendships);
   return session;
 }
 

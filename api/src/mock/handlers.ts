@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { HangoutHistoryCreate } from "../schemas/history.js";
-import type { HangoutInviteCreate } from "../schemas/hangoutInvite.js";
+import type { HangoutInviteCreate, HangoutInviteDoc } from "../schemas/hangoutInvite.js";
 import type { HangoutPrefsFields } from "../schemas/hangoutPrefs.js";
 import type { SavedSuggestionCreate } from "../schemas/savedSuggestion.js";
 import type { UsersPublicDoc, UsersPublicWrite } from "../schemas/usersPublic.js";
 import { friendRequestDocId, friendshipId, normalizeUsername } from "../services/social/ids.js";
+import { mockInvitesFindById, mockInvitesListAll, mockInvitesPush } from "./mock-invites-store.js";
 import { ensureMockSession, type MockSession } from "./store.js";
 
 function rowPublicProfiles(s: MockSession): UsersPublicDoc[] {
@@ -252,6 +253,16 @@ export function mockDeclineFriendRequest(viewerUid: string, fromUid: string) {
   r.updatedAt = new Date().toISOString();
 }
 
+function mockAppendPairToBottomOfFriendOrder(fromUid: string, toUid: string) {
+  const bump = (viewer: string, other: string) => {
+    const s = ensureMockSession(viewer);
+    if (!s.friendships.has(friendshipId(viewer, other))) return;
+    s.friendOrder = [...s.friendOrder.filter((id) => id !== other), other];
+  };
+  bump(fromUid, toUid);
+  bump(toUid, fromUid);
+}
+
 export function mockCreateHangoutInvite(viewerUid: string, body: HangoutInviteCreate) {
   const s = ensureMockSession(viewerUid);
   if (!s.friendships.has(friendshipId(viewerUid, body.counterpartyUid))) {
@@ -259,22 +270,24 @@ export function mockCreateHangoutInvite(viewerUid: string, body: HangoutInviteCr
   }
   const now = new Date().toISOString();
   const id = randomUUID();
-  const doc = {
+  const msg = body.message?.trim();
+  const doc: HangoutInviteDoc = {
     id,
     fromUid: viewerUid,
     toUid: body.counterpartyUid,
     activity: body.activity,
-    status: "pending" as const,
+    status: "pending",
     createdAt: now,
     updatedAt: now,
+    ...(msg ? { message: msg } : {}),
   };
-  s.hangoutInvites.push(doc);
+  mockInvitesPush(doc);
   return id;
 }
 
 export function mockAcceptHangoutInvite(viewerUid: string, inviteId: string) {
-  const s = ensureMockSession(viewerUid);
-  const inv = s.hangoutInvites.find((i) => i.id === inviteId);
+  ensureMockSession(viewerUid);
+  const inv = mockInvitesFindById(inviteId);
   if (!inv) throw new Error("Invite not found");
   if (inv.toUid !== viewerUid) throw new Error("Forbidden");
   if (inv.status !== "pending") throw new Error("Invite not pending");
@@ -282,11 +295,12 @@ export function mockAcceptHangoutInvite(viewerUid: string, inviteId: string) {
   inv.status = "accepted";
   inv.updatedAt = now;
   inv.respondedAt = now;
+  mockAppendPairToBottomOfFriendOrder(inv.fromUid, inv.toUid);
 }
 
 export function mockDeclineHangoutInvite(viewerUid: string, inviteId: string) {
-  const s = ensureMockSession(viewerUid);
-  const inv = s.hangoutInvites.find((i) => i.id === inviteId);
+  ensureMockSession(viewerUid);
+  const inv = mockInvitesFindById(inviteId);
   if (!inv) throw new Error("Invite not found");
   if (inv.toUid !== viewerUid) throw new Error("Forbidden");
   if (inv.status !== "pending") throw new Error("Invite not pending");
@@ -297,13 +311,13 @@ export function mockDeclineHangoutInvite(viewerUid: string, inviteId: string) {
 }
 
 export function mockListInviteInbox(viewerUid: string) {
-  const s = ensureMockSession(viewerUid);
-  return s.hangoutInvites.filter((i) => i.toUid === viewerUid && i.status === "pending");
+  ensureMockSession(viewerUid);
+  return mockInvitesListAll().filter((i) => i.toUid === viewerUid && i.status === "pending");
 }
 
 export function mockListInviteOutbox(viewerUid: string) {
-  const s = ensureMockSession(viewerUid);
-  return s.hangoutInvites
+  ensureMockSession(viewerUid);
+  return mockInvitesListAll()
     .filter((i) => i.fromUid === viewerUid)
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
