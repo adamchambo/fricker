@@ -12,6 +12,17 @@ import {
   listInviteOutbox,
 } from "../services/social/invites.js";
 
+function firestoreIndexHint(err: unknown): string | null {
+  const message = err instanceof Error ? err.message : String(err);
+  const details =
+    err && typeof err === "object" && "details" in err ? String((err as { details?: unknown }).details) : "";
+  const blob = `${message} ${details}`;
+  if (blob.includes("requires an index")) {
+    return "Firestore needs a composite index for this query. Deploy db/firestore.indexes.json (see db/firebase.json) or use the create index link in the API server log.";
+  }
+  return null;
+}
+
 export const invitesRouter = Router();
 
 invitesRouter.use(requireAuth);
@@ -62,12 +73,30 @@ invitesRouter.post("/invites/:id/decline", async (req, res) => {
 
 invitesRouter.get("/invites/inbox", async (req, res) => {
   const uid = getUserId(req);
-  const items = env.useMockData ? mock.mockListInviteInbox(uid) : await listInviteInbox(uid);
-  res.json({ invites: items });
+  try {
+    const items = env.useMockData ? mock.mockListInviteInbox(uid) : await listInviteInbox(uid);
+    res.json({ invites: items });
+  } catch (e: unknown) {
+    const hint = firestoreIndexHint(e);
+    if (hint) {
+      res.status(503).json({ error: hint });
+      return;
+    }
+    res.status(500).json({ error: e instanceof Error ? e.message : "Failed to list inbox" });
+  }
 });
 
 invitesRouter.get("/invites/outbox", async (req, res) => {
   const uid = getUserId(req);
-  const items = env.useMockData ? mock.mockListInviteOutbox(uid) : await listInviteOutbox(uid);
-  res.json({ invites: items });
+  try {
+    const items = env.useMockData ? mock.mockListInviteOutbox(uid) : await listInviteOutbox(uid);
+    res.json({ invites: items });
+  } catch (e: unknown) {
+    const hint = firestoreIndexHint(e);
+    if (hint) {
+      res.status(503).json({ error: hint });
+      return;
+    }
+    res.status(500).json({ error: e instanceof Error ? e.message : "Failed to list outbox" });
+  }
 });

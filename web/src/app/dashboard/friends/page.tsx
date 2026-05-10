@@ -158,11 +158,11 @@ export default function FriendsListPage() {
         <div>
           <h1 className="text-2xl font-semibold text-[var(--foreground)]">Friends</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Drag to set who shows first in{" "}
-            <Link href="/dashboard/swipe" className="text-[var(--accent)] hover:underline">
+            Manage friends and their order here — drag to set who shows first. Use{" "}
+            <Link href="/dashboard/swipe" className="font-medium text-[var(--accent)] hover:underline">
               Swipe
-            </Link>
-            . Plan hangouts there, then track invites.
+            </Link>{" "}
+            to pick activities and send invites.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

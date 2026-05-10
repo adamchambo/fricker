@@ -267,9 +267,6 @@ export default function SwipePage() {
             <Link href="/dashboard/invites" className="text-sm text-[var(--muted)] hover:underline">
               Invites
             </Link>
-            <Link href="/dashboard/saved" className="text-sm text-[var(--muted)] hover:underline">
-              Saved
-            </Link>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">

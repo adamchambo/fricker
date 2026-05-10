@@ -26,13 +26,13 @@ export function ThemeToggle() {
         className="relative flex h-5 w-9 items-center rounded-full bg-[color-mix(in_srgb,var(--muted)_28%,var(--border))] p-0.5 transition-colors duration-300"
         aria-hidden
       >
-        <span
-          className={`block h-4 w-4 rounded-full bg-[var(--card)] shadow transition-transform duration-300 ease-out ${
+      <span
+        className={`block h-4 w-4 rounded-full bg-[var(--card)] shadow transition-transform duration-300 ease-out ${
             isDark ? "translate-x-[1.125rem]" : "translate-x-0"
           }`}
         />
       </span>
-      {isDark ? "Night" : "Day"}
+      <span className="inline-block w-[3rem] shrink-0 text-center">{isDark ? "Night" : "Day"}</span>
     </button>
   );
 }

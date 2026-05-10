@@ -57,8 +57,8 @@ export default function HomePage() {
 
         <div className="mt-14 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-[var(--border)] pt-8 font-sans text-sm text-[var(--muted)] animate-fade-up opacity-0 [animation-delay:300ms]">
           <span>Username search · friend requests · invites you both control.</span>
-          <Link href="/dashboard" className="hangout-link text-[var(--foreground)]">
-            Dashboard →
+          <Link href="/dashboard/swipe" className="hangout-link text-[var(--foreground)]">
+            Open app →
           </Link>
         </div>
       </div>

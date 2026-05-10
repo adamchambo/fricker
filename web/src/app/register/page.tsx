@@ -2,24 +2,64 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { useState } from "react";
+import { ApiError, apiFetch } from "@/lib/api-client";
 import { getFirebaseAuth } from "@/lib/firebase";
+
+const USERNAME_RE = /^[a-zA-Z0-9_]+$/;
 
 export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    const u = username.trim();
+    const dn = displayName.trim();
+    if (u.length < 3 || u.length > 24) {
+      setError("Username must be 3–24 characters.");
+      return;
+    }
+    if (!USERNAME_RE.test(u)) {
+      setError("Username may only contain letters, numbers, and underscore.");
+      return;
+    }
+    if (dn.length < 1 || dn.length > 80) {
+      setError("Display name must be 1–80 characters.");
+      return;
+    }
     setLoading(true);
+    const auth = getFirebaseAuth();
     try {
-      const auth = getFirebaseAuth();
       await createUserWithEmailAndPassword(auth, email, password);
+      try {
+        await apiFetch("/api/profile/public", {
+          method: "POST",
+          body: JSON.stringify({ username: u, displayName: dn }),
+        });
+      } catch (profileErr: unknown) {
+        await signOut(auth);
+        setError(
+          profileErr instanceof ApiError
+            ? profileErr.message
+            : profileErr instanceof Error
+              ? profileErr.message
+              : "Could not save profile. Try again.",
+        );
+        return;
+      }
       router.replace("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed");
@@ -53,6 +93,37 @@ export default function RegisterPage() {
           />
         </label>
         <label className="flex flex-col gap-2 font-sans text-sm font-medium text-[var(--foreground)]">
+          <span className="text-[var(--muted)]">Username</span>
+          <input
+            type="text"
+            autoComplete="username"
+            required
+            minLength={3}
+            maxLength={24}
+            pattern="[a-zA-Z0-9_]+"
+            title="Letters, numbers, and underscore only"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="hangout-input"
+            placeholder="your_handle"
+          />
+          <span className="text-xs font-normal font-sans text-[var(--muted)]">3–24 characters: letters, numbers, underscore.</span>
+        </label>
+        <label className="flex flex-col gap-2 font-sans text-sm font-medium text-[var(--foreground)]">
+          <span className="text-[var(--muted)]">Display name</span>
+          <input
+            type="text"
+            autoComplete="name"
+            required
+            minLength={1}
+            maxLength={80}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="hangout-input"
+            placeholder="How you appear to friends"
+          />
+        </label>
+        <label className="flex flex-col gap-2 font-sans text-sm font-medium text-[var(--foreground)]">
           <span className="text-[var(--muted)]">Password (min 6 characters)</span>
           <input
             type="password"
@@ -61,6 +132,18 @@ export default function RegisterPage() {
             minLength={6}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            className="hangout-input"
+          />
+        </label>
+        <label className="flex flex-col gap-2 font-sans text-sm font-medium text-[var(--foreground)]">
+          <span className="text-[var(--muted)]">Confirm password</span>
+          <input
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={6}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             className="hangout-input"
           />
         </label>
