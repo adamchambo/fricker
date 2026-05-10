@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { SwipeDeck } from "@/components/swipe-deck";
+import { FriendIdeasFlipCard } from "@/components/friend-ideas-flip-card";
+import { InviteHangoutDialog } from "@/components/invite-hangout-dialog";
 import { SwipeFriendDeck } from "@/components/swipe-friend-deck";
+import { SwipeInitialSkeleton } from "@/components/swipe-initial-skeleton";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import type { SocialFriendEdge, SuggestionsGenerateResponse } from "@/types/social";
-import type { SuggestionItem } from "@/types/suggestion";
+import { suggestionRowKey, type SuggestionItem } from "@/types/suggestion";
 
 type FriendsResponse = { friends: SocialFriendEdge[] };
 
-type Phase = "pickFriend" | "activities" | "send";
+type Phase = "pickFriend" | "activities";
 
 function buildInviteText(s: SuggestionItem): string {
   return `${s.title}\n\n${s.reason}\n\n${s.estimatedCost} · ${s.estimatedDuration}`;
@@ -26,8 +28,11 @@ export default function SwipePage() {
   const [friends, setFriends] = useState<SocialFriendEdge[] | null>(null);
   const [friendQueue, setFriendQueue] = useState<SocialFriendEdge[]>([]);
   const [friendId, setFriendId] = useState(friendFromUrl);
+  const [planningFriend, setPlanningFriend] = useState<SocialFriendEdge | null>(null);
   const [queue, setQueue] = useState<SuggestionItem[]>([]);
+  const [ideaSource, setIdeaSource] = useState<"llm" | "fallback" | undefined>(undefined);
   const [chosenActivity, setChosenActivity] = useState<SuggestionItem | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteNote, setInviteNote] = useState("");
   const [sending, setSending] = useState(false);
   const [loadingFriends, setLoadingFriends] = useState(true);
@@ -35,6 +40,7 @@ export default function SwipePage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [savingRowKey, setSavingRowKey] = useState<string | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -50,6 +56,12 @@ export default function SwipePage() {
       setPhase("activities");
     }
   }, [friendFromUrl]);
+
+  useEffect(() => {
+    if (!friends?.length || !friendFromUrl) return;
+    const f = friends.find((x) => x.counterpartyUid === friendFromUrl);
+    if (f) setPlanningFriend(f);
+  }, [friends, friendFromUrl]);
 
   const loadFriends = useCallback(async () => {
     setLoadingFriends(true);
@@ -77,7 +89,6 @@ export default function SwipePage() {
   }, [friends, friendFromUrl, phase]);
 
   const topFriend = friendQueue[0] ?? null;
-  const topActivity = queue[0] ?? null;
 
   const skipFriend = useCallback(() => {
     setFriendQueue((q) => (q.length <= 1 ? q : [...q.slice(1), q[0]]));
@@ -86,18 +97,19 @@ export default function SwipePage() {
   const chooseFriend = useCallback(async () => {
     const f = friendQueue[0];
     if (!f) return;
+    setPlanningFriend(f);
     setFriendId(f.counterpartyUid);
     setFriendQueue((q) => q.slice(1));
     setQueue([]);
+    setIdeaSource(undefined);
     setToast(null);
     router.replace(`/dashboard/swipe?friend=${encodeURIComponent(f.counterpartyUid)}`, { scroll: false });
     setPhase("activities");
   }, [friendQueue, router]);
 
-  async function generateIdeas() {
+  const generateIdeas = useCallback(async () => {
     if (!friendId) return;
     setError(null);
-    setToast(null);
     setGenerating(true);
     try {
       const res = await apiFetch<SuggestionsGenerateResponse>(
@@ -105,50 +117,69 @@ export default function SwipePage() {
         { method: "POST" },
       );
       setQueue(res.suggestions ?? []);
-      if (!res.suggestions?.length) setToast("No ideas returned — try again.");
+      setIdeaSource(res.source);
+      if (!res.suggestions?.length) {
+        setToast("No ideas returned — try Refresh ideas.");
+      } else if (res.source === "fallback") {
+        setToast("Using offline ideas — AI wasn’t reachable.");
+      } else {
+        setToast(null);
+      }
     } catch (e: unknown) {
       setError(e instanceof ApiError ? e.message : "Could not generate ideas");
+      setQueue([]);
     } finally {
       setGenerating(false);
     }
+  }, [friendId]);
+
+  useEffect(() => {
+    if (phase !== "activities" || !friendId) return;
+    void generateIdeas();
+  }, [phase, friendId, generateIdeas]);
+
+  const saveIdeaForLater = useCallback(
+    async (s: SuggestionItem) => {
+      if (!friendId) return;
+      const key = suggestionRowKey(s);
+      setSavingRowKey(key);
+      setError(null);
+      try {
+        const inviteText = buildInviteText(s);
+        await apiFetch("/api/saved-suggestions", {
+          method: "POST",
+          body: JSON.stringify({
+            friendId,
+            title: s.title,
+            reason: s.reason,
+            estimatedCost: s.estimatedCost,
+            estimatedDuration: s.estimatedDuration,
+            nearbyPlaces: s.nearbyPlaces ?? [],
+            inviteText,
+          }),
+        });
+        setQueue((q) => q.filter((x) => suggestionRowKey(x) !== key));
+        setToast("Saved to your list.");
+      } catch (e: unknown) {
+        setError(e instanceof ApiError ? e.message : "Save failed");
+      } finally {
+        setSavingRowKey(null);
+      }
+    },
+    [friendId],
+  );
+
+  function openInvite(s: SuggestionItem) {
+    setChosenActivity(s);
+    setInviteNote("");
+    setInviteOpen(true);
   }
 
-  const saveCurrentToSaved = useCallback(async () => {
-    const s = queue[0];
-    if (!s || !friendId) return;
-    try {
-      const inviteText = buildInviteText(s);
-      await apiFetch("/api/saved-suggestions", {
-        method: "POST",
-        body: JSON.stringify({
-          friendId,
-          title: s.title,
-          reason: s.reason,
-          estimatedCost: s.estimatedCost,
-          estimatedDuration: s.estimatedDuration,
-          nearbyPlaces: s.nearbyPlaces ?? [],
-          inviteText,
-        }),
-      });
-      setQueue((q) => q.slice(1));
-      setToast("Saved to your list.");
-    } catch (e: unknown) {
-      setError(e instanceof ApiError ? e.message : "Save failed");
-    }
-  }, [queue, friendId]);
-
-  const passActivity = useCallback(() => {
-    setQueue((q) => q.slice(1));
-  }, []);
-
-  const chooseActivity = useCallback(async () => {
-    const s = queue[0];
-    if (!s) return;
-    setChosenActivity(s);
-    setQueue((q) => q.slice(1));
+  function closeInvite() {
+    setInviteOpen(false);
+    setChosenActivity(null);
     setInviteNote("");
-    setPhase("send");
-  }, [queue]);
+  }
 
   async function sendInvite() {
     if (!chosenActivity || !friendId) return;
@@ -163,10 +194,12 @@ export default function SwipePage() {
           message: inviteNote.trim() || undefined,
         }),
       });
-      setToast("Invite sent. They’ll see it in Invites.");
-      setChosenActivity(null);
-      setInviteNote("");
+      const key = suggestionRowKey(chosenActivity);
+      setQueue((q) => q.filter((x) => suggestionRowKey(x) !== key));
+      setToast("Invite sent — check Plans.");
+      closeInvite();
       setPhase("pickFriend");
+      setPlanningFriend(null);
       router.replace("/dashboard/swipe", { scroll: false });
       await loadFriends();
       setFriendQueue([]);
@@ -177,22 +210,17 @@ export default function SwipePage() {
     }
   }
 
-  function backToActivities() {
-    if (chosenActivity) {
-      setQueue((q) => [chosenActivity, ...q]);
-    }
-    setChosenActivity(null);
-    setInviteNote("");
-    setPhase("activities");
-  }
-
   function changeFriend() {
     setPhase("pickFriend");
     setQueue([]);
-    setChosenActivity(null);
+    setPlanningFriend(null);
+    setIdeaSource(undefined);
+    closeInvite();
     router.replace("/dashboard/swipe", { scroll: false });
     if (friends?.length) setFriendQueue([...friends]);
   }
+
+  const planFriend = planningFriend ?? friends?.find((f) => f.counterpartyUid === friendId) ?? null;
 
   return (
     <div className="space-y-6">
@@ -201,9 +229,7 @@ export default function SwipePage() {
         <p className="mt-1 text-sm text-[var(--muted)]">
           {phase === "pickFriend"
             ? "Swipe through friends — who do you want to plan with?"
-            : phase === "activities"
-              ? "Get ideas, then choose one to send as a hangout invite."
-              : "Add an optional note and send the invite."}
+            : "Flip the card for ideas, then tap one to send a hangout invite."}
         </p>
         <p className="mt-2 text-xs text-[var(--muted)]">
           Both people need a public profile and prefs for good suggestions.{" "}
@@ -217,7 +243,7 @@ export default function SwipePage() {
       {toast ? <p className="text-sm text-[var(--muted)]">{toast}</p> : null}
 
       {loadingFriends ? (
-        <p className="text-[var(--muted)]">Loading…</p>
+        <SwipeInitialSkeleton />
       ) : !friends?.length ? (
         <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--card)] px-6 py-10 text-center">
           <p className="text-[var(--foreground)]">Add a friend first</p>
@@ -252,97 +278,56 @@ export default function SwipePage() {
             </button>
           ) : null}
         </>
-      ) : phase === "activities" ? (
+      ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm text-[var(--foreground)]">
               Planning with{" "}
-              <strong>
-                {friends.find((f) => f.counterpartyUid === friendId)?.profile.displayName ?? friendId}
-              </strong>
+              <strong>{planFriend?.profile.displayName ?? friendId}</strong>
             </p>
             <button type="button" onClick={() => changeFriend()} className="text-sm text-[var(--accent)] hover:underline">
               Change friend
             </button>
-            <Link href="/dashboard/invites" className="text-sm text-[var(--muted)] hover:underline">
-              Invites
-            </Link>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               disabled={generating || !friendId}
               onClick={() => void generateIdeas()}
-              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              className="text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-50"
             >
-              {generating ? "Getting ideas…" : queue.length === 0 ? "Get ideas" : "More ideas"}
+              {generating ? "Refreshing…" : "Refresh ideas"}
             </button>
+            <Link href="/dashboard/invites" className="text-sm text-[var(--muted)] hover:underline">
+              Plans
+            </Link>
           </div>
 
-          {topActivity ? (
-            <>
-              <SwipeDeck
-                key={`${friendId}-${queue.length}`}
-                card={topActivity}
-                onPass={passActivity}
-                onSwipeRight={chooseActivity}
-                rightLabel="Choose"
-                reducedMotion={reducedMotion}
-              />
-              <button
-                type="button"
-                onClick={() => void saveCurrentToSaved()}
-                className="text-sm text-[var(--muted)] underline hover:text-[var(--foreground)]"
-              >
-                Save this card for later (no invite)
-              </button>
-            </>
-          ) : !generating ? (
-            <p className="text-sm text-[var(--muted)]">No cards in the deck — tap Get ideas.</p>
-          ) : null}
+          {planFriend ? (
+            <FriendIdeasFlipCard
+              key={planFriend.counterpartyUid}
+              friend={planFriend}
+              ideas={queue}
+              ideasLoading={generating}
+              ideaSource={ideaSource}
+              reducedMotion={reducedMotion}
+              onPickIdea={openInvite}
+              onSaveIdea={(s) => void saveIdeaForLater(s)}
+              savingId={savingRowKey}
+            />
+          ) : (
+            <SwipeInitialSkeleton />
+          )}
         </>
-      ) : (
-        chosenActivity && (
-          <div className="mx-auto max-w-md space-y-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-            <h2 className="text-lg font-semibold text-[var(--foreground)]">Send hangout invite</h2>
-            <div>
-              <p className="font-medium text-[var(--foreground)]">{chosenActivity.title}</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">{chosenActivity.reason}</p>
-              <p className="mt-2 text-sm text-[var(--foreground)]">
-                {chosenActivity.estimatedCost} · {chosenActivity.estimatedDuration}
-              </p>
-            </div>
-            <label className="block text-sm">
-              <span className="text-[var(--muted)]">Optional note</span>
-              <textarea
-                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]"
-                rows={3}
-                value={inviteNote}
-                onChange={(e) => setInviteNote(e.target.value)}
-                placeholder="e.g. Want to do this Saturday?"
-              />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={sending}
-                onClick={() => void sendInvite()}
-                className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-              >
-                {sending ? "Sending…" : "Send invite"}
-              </button>
-              <button
-                type="button"
-                onClick={() => backToActivities()}
-                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm"
-              >
-                Back
-              </button>
-            </div>
-          </div>
-        )
       )}
+
+      <InviteHangoutDialog
+        open={inviteOpen}
+        activity={chosenActivity}
+        inviteNote={inviteNote}
+        onInviteNoteChange={setInviteNote}
+        onClose={closeInvite}
+        onSend={() => void sendInvite()}
+        sending={sending}
+      />
     </div>
   );
 }

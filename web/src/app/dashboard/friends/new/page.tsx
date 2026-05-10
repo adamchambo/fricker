@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import type { PublicProfile } from "@/types/social";
 
 type SearchResponse = { users: PublicProfile[] };
+type ProfileMeResponse = { uid: string; public: PublicProfile | null };
+
+function normalizeUsername(raw: string): string {
+  return raw.trim().replace(/^@/, "").toLowerCase();
+}
 
 export default function AddFriendPage() {
   const [q, setQ] = useState("");
@@ -13,6 +18,25 @@ export default function AddFriendPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [myUid, setMyUid] = useState<string | null>(null);
+  const [myUsernameLower, setMyUsernameLower] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const profile = await apiFetch<ProfileMeResponse>("/api/profile/me", { method: "GET" });
+        if (cancelled) return;
+        setMyUid(profile.uid);
+        setMyUsernameLower(profile.public?.usernameLower ?? null);
+      } catch {
+        /* signed out or API down */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const search = useCallback(async () => {
     setError(null);
@@ -29,14 +53,19 @@ export default function AddFriendPage() {
         `/api/users/search?q=${encodeURIComponent(trimmed)}`,
         { method: "GET" },
       );
-      setResults(res.users);
+      const qNorm = normalizeUsername(trimmed);
+      const others = myUid ? res.users.filter((u) => u.uid !== myUid) : res.users;
+      setResults(others);
+      if (myUsernameLower && qNorm === myUsernameLower && others.length === 0) {
+        setMsg("That’s your username — you can’t add yourself. Search for someone else.");
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Search failed");
       setResults([]);
     } finally {
       setBusy(false);
     }
-  }, [q]);
+  }, [q, myUid, myUsernameLower]);
 
   async function sendRequest(username: string) {
     setError(null);
@@ -46,7 +75,7 @@ export default function AddFriendPage() {
         method: "POST",
         body: JSON.stringify({ toUsername: username }),
       });
-      setMsg(`Request sent to @${username}. They can accept under Requests.`);
+      setMsg(`Request sent to @${username}. They should open Requests in the nav (or Friends → Requests) to accept.`);
     } catch (e: unknown) {
       const m = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Request failed";
       setError(m);
@@ -76,7 +105,7 @@ export default function AddFriendPage() {
         </div>
         {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
         {msg ? <p className="mt-3 text-sm text-[var(--muted)]">{msg}</p> : null}
-        {results && results.length === 0 && !error ? (
+        {results && results.length === 0 && !error && !msg ? (
           <p className="mt-4 text-sm text-[var(--muted)]">No matches.</p>
         ) : null}
         {results && results.length > 0 ? (

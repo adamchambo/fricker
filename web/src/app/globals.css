@@ -84,6 +84,17 @@
   }
 }
 
+@layer utilities {
+  /* Hide scrollbars but keep scrolling (e.g. snap carousels) */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer components {
   .hangout-card {
     @apply rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-soft)] transition-[transform,box-shadow] duration-300 ease-out;

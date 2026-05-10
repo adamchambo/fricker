@@ -102,8 +102,15 @@ export async function acceptFriendRequest(viewerUid: string, fromUid: string): P
   const fid = friendshipId(fromUid, toUid);
   const now = new Date().toISOString();
 
+  /** Same pair, opposite direction (e.g. t1→t2 while t2→t1 is accepted). Must not stay "pending". */
+  const reverseRef = db.collection("friendRequests").doc(friendRequestDocId(viewerUid, fromUid));
+  const reverseSnap = await reverseRef.get();
+
   const batch = db.batch();
   batch.update(ref, { status: "accepted", updatedAt: now });
+  if (reverseSnap.exists && reverseSnap.data()?.status === "pending") {
+    batch.update(reverseRef, { status: "withdrawn", updatedAt: now });
+  }
   batch.set(db.collection("friendships").doc(fid), {
     members: [fromUid, toUid].sort(),
     createdAt: now,

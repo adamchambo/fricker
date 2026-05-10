@@ -42,4 +42,5 @@ export type FriendDetailResponse = {
 export type SuggestionsGenerateResponse = {
   counterpartyUid: string;
   suggestions: SuggestionItem[];
+  source?: "llm" | "fallback";
 };

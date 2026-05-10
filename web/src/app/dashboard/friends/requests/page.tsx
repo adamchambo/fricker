@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { FriendRequestsSkeleton } from "@/components/dashboard-skeletons";
 import { apiFetch } from "@/lib/api-client";
 import type { PublicProfile } from "@/types/social";
 
@@ -67,7 +68,13 @@ export default function FriendRequestsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-[var(--foreground)]">Friend requests</h1>
-          <p className="mt-1 text-sm text-[var(--muted)]">Accept to connect — then they appear on your friends list.</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Someone added you by username? Their request shows here. (Hangout <em>plans</em> after you&apos;re friends live under{" "}
+            <Link href="/dashboard/invites" className="text-[var(--accent)] hover:underline">
+              Plans
+            </Link>
+            .)
+          </p>
         </div>
         <Link href="/dashboard/friends" className="text-sm font-medium text-[var(--accent)] hover:underline">
           Back to friends
@@ -75,58 +82,60 @@ export default function FriendRequestsPage() {
       </div>
       {error ? <p className="text-sm text-red-500">{error}</p> : null}
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="text-lg font-medium text-[var(--foreground)]">Incoming</h2>
-        {incoming === null ? (
-          <p className="mt-2 text-sm text-[var(--muted)]">Loading…</p>
-        ) : incoming.length === 0 ? (
-          <p className="mt-2 text-sm text-[var(--muted)]">No pending requests.</p>
-        ) : (
-          <ul className="mt-4 space-y-3">
-            {incoming.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-3 last:border-0">
-                <div>
-                  <p className="font-medium text-[var(--foreground)]">{r.profile?.displayName ?? r.fromUid}</p>
-                  {r.profile ? <p className="text-sm text-[var(--muted)]">@{r.profile.username}</p> : null}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-white"
-                    onClick={() => void accept(r.fromUid)}
-                  >
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm"
-                    onClick={() => void decline(r.fromUid)}
-                  >
-                    Decline
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {incoming === null || outgoing === null ? (
+        <FriendRequestsSkeleton />
+      ) : (
+        <>
+          <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+            <h2 className="text-lg font-medium text-[var(--foreground)]">Incoming</h2>
+            {incoming.length === 0 ? (
+              <p className="mt-2 text-sm text-[var(--muted)]">No pending requests.</p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {incoming.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-3 last:border-0">
+                    <div>
+                      <p className="font-medium text-[var(--foreground)]">{r.profile?.displayName ?? r.fromUid}</p>
+                      {r.profile ? <p className="text-sm text-[var(--muted)]">@{r.profile.username}</p> : null}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-white"
+                        onClick={() => void accept(r.fromUid)}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm"
+                        onClick={() => void decline(r.fromUid)}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="text-lg font-medium text-[var(--foreground)]">Outgoing</h2>
-        {outgoing === null ? (
-          <p className="mt-2 text-sm text-[var(--muted)]">Loading…</p>
-        ) : outgoing.length === 0 ? (
-          <p className="mt-2 text-sm text-[var(--muted)]">No pending outgoing requests.</p>
-        ) : (
-          <ul className="mt-4 space-y-2">
-            {outgoing.map((r) => (
-              <li key={r.id} className="text-sm text-[var(--foreground)]">
-                Pending → {r.profile ? `@${r.profile.username} (${r.profile.displayName})` : r.toUid}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+            <h2 className="text-lg font-medium text-[var(--foreground)]">Outgoing</h2>
+            {outgoing.length === 0 ? (
+              <p className="mt-2 text-sm text-[var(--muted)]">No pending outgoing requests.</p>
+            ) : (
+              <ul className="mt-4 space-y-2">
+                {outgoing.map((r) => (
+                  <li key={r.id} className="text-sm text-[var(--foreground)]">
+                    Pending → {r.profile ? `@${r.profile.username} (${r.profile.displayName})` : r.toUid}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

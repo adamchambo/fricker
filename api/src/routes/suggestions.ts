@@ -3,6 +3,7 @@ import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
 import { getUserId } from "../middleware/get-user-id.js";
 import * as mock from "../mock/handlers.js";
+import { loadFallbackSuggestions } from "../services/ai/fallback-suggestions.js";
 import { createAiProvider } from "../services/ai/factory.js";
 import type { PersonHangoutContext } from "../services/ai/provider.interface.js";
 import { assertFriendship } from "../services/social/graph.js";
@@ -61,9 +62,15 @@ suggestionsRouter.post("/suggestions/:counterpartyUid/generate", async (req, res
   try {
     const provider = createAiProvider();
     const suggestions = await provider.generateSuggestions({ viewer, counterparty });
-    res.json({ counterpartyUid, suggestions });
+    res.json({ counterpartyUid, suggestions, source: "llm" as const });
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "Suggestion failed";
-    res.status(502).json({ error: message });
+    console.error("[fricker api] generateSuggestions failed", e);
+    try {
+      const suggestions = loadFallbackSuggestions();
+      res.json({ counterpartyUid, suggestions, source: "fallback" as const });
+    } catch {
+      const message = e instanceof Error ? e.message : "Suggestion failed";
+      res.status(502).json({ error: message });
+    }
   }
 });

@@ -6,9 +6,24 @@ import { signOut } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const navLinks = [
-  { href: "/dashboard/friends", label: "Friends" },
-  { href: "/dashboard/invites", label: "Invites" },
+type NavItem = { href: string; label: string; isActive: (pathname: string) => boolean };
+
+const navLinks: NavItem[] = [
+  {
+    href: "/dashboard/friends",
+    label: "Friends",
+    isActive: (p) => p.startsWith("/dashboard/friends") && !p.startsWith("/dashboard/friends/requests"),
+  },
+  {
+    href: "/dashboard/friends/requests",
+    label: "Requests",
+    isActive: (p) => p.startsWith("/dashboard/friends/requests"),
+  },
+  {
+    href: "/dashboard/invites",
+    label: "Plans",
+    isActive: (p) => p === "/dashboard/invites",
+  },
 ];
 
 function ProfileIcon({ className }: { className?: string }) {
@@ -48,7 +63,7 @@ export function AppNav() {
           aria-label="Primary"
         >
           {navLinks.map((l) => {
-            const active = pathname === l.href;
+            const active = l.isActive(pathname);
             return (
               <Link
                 key={l.href}

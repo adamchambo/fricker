@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { InvitesPageSkeleton } from "@/components/dashboard-skeletons";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import type { HangoutInviteRow } from "@/types/invite";
 
@@ -62,9 +63,17 @@ export default function InvitesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--foreground)]">Invites</h1>
+        <h1 className="text-2xl font-semibold text-[var(--foreground)]">Plan invites</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Plans friends send you appear in Inbox. After someone accepts, friend order updates on both sides — see{" "}
+          Hangout ideas friends send <em>after</em> you&apos;re connected. To accept someone as a friend first, open{" "}
+          <Link href="/dashboard/friends/requests" className="font-medium text-[var(--accent)] hover:underline">
+            Requests
+          </Link>
+          {" "}
+          (not this page).
+        </p>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          After you accept a plan here, friend order can update — see{" "}
           <Link href="/dashboard/friends" className="text-[var(--accent)] hover:underline">
             Friends
           </Link>
@@ -74,11 +83,13 @@ export default function InvitesPage() {
 
       {error ? <p className="text-sm text-red-500">{error}</p> : null}
 
+      {inbox === null || outbox === null ? (
+        <InvitesPageSkeleton />
+      ) : (
+        <>
       <section>
         <h2 className="text-lg font-medium text-[var(--foreground)]">Inbox</h2>
-        {inbox === null ? (
-          <p className="mt-2 text-[var(--muted)]">Loading…</p>
-        ) : inbox.length === 0 ? (
+        {inbox.length === 0 ? (
           <p className="mt-2 text-sm text-[var(--muted)]">No pending invites.</p>
         ) : (
           <ul className="mt-3 space-y-3">
@@ -124,9 +135,7 @@ export default function InvitesPage() {
 
       <section>
         <h2 className="text-lg font-medium text-[var(--foreground)]">Sent</h2>
-        {outbox === null ? (
-          <p className="mt-2 text-[var(--muted)]">Loading…</p>
-        ) : outbox.length === 0 ? (
+        {outbox.length === 0 ? (
           <p className="mt-2 text-sm text-[var(--muted)]">Nothing sent yet. Use Swipe to send a plan.</p>
         ) : (
           <ul className="mt-3 space-y-3">
@@ -146,6 +155,8 @@ export default function InvitesPage() {
           </ul>
         )}
       </section>
+        </>
+      )}
     </div>
   );
 }

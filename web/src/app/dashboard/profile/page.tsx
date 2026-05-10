@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { ProfilePageSkeleton } from "@/components/dashboard-skeletons";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import type { HangoutPrefs, PublicProfile } from "@/types/social";
 
@@ -116,7 +117,7 @@ export default function MyProfilePage() {
     "mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]";
 
   if (loading) {
-    return <p className="text-[var(--muted)]">Loading…</p>;
+    return <ProfilePageSkeleton />;
   }
 
   return (

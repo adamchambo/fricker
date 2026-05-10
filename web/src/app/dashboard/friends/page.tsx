@@ -19,6 +19,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { FriendsListSkeleton } from "@/components/dashboard-skeletons";
 import { apiFetch } from "@/lib/api-client";
 import type { SocialFriendEdge } from "@/types/social";
 
@@ -182,7 +183,7 @@ export default function FriendsListPage() {
       </div>
       {error ? <p className="text-sm text-red-500">{error}</p> : null}
       {friends === null ? (
-        <p className="text-[var(--muted)]">Loading…</p>
+        <FriendsListSkeleton />
       ) : friends.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--card)] px-6 py-12 text-center">
           <p className="text-[var(--foreground)]">No friends yet</p>

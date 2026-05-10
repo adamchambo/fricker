@@ -5,3 +5,7 @@ export type SuggestionItem = {
   estimatedDuration: string;
   nearbyPlaces?: string[];
 };
+
+export function suggestionRowKey(s: SuggestionItem): string {
+  return `${s.title}::${s.estimatedDuration}`;
+}

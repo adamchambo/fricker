@@ -144,7 +144,9 @@ export function mockSearchUsers(viewerUid: string, q: string) {
   const s = ensureMockSession(viewerUid);
   const prefix = normalizeUsername(q);
   if (prefix.length < 2) return [];
-  return rowPublicProfiles(s).filter((p) => p.usernameLower.startsWith(prefix));
+  return rowPublicProfiles(s).filter(
+    (p) => p.uid !== viewerUid && p.usernameLower.startsWith(prefix),
+  );
 }
 
 export function mockGetUserByUsername(viewerUid: string, username: string) {
@@ -239,6 +241,12 @@ export function mockAcceptFriendRequest(viewerUid: string, fromUid: string) {
   const now = new Date().toISOString();
   r.status = "accepted";
   r.updatedAt = now;
+  const reverseId = friendRequestDocId(viewerUid, fromUid);
+  const reverse = s.friendRequests.find((x) => x.id === reverseId);
+  if (reverse && reverse.status === "pending") {
+    reverse.status = "withdrawn";
+    reverse.updatedAt = now;
+  }
   s.friendships.add(friendshipId(fromUid, viewerUid));
   if (!s.friendOrder.includes(fromUid)) s.friendOrder.push(fromUid);
 }

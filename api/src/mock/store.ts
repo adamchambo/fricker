@@ -20,7 +20,7 @@ type FriendRequestRow = {
   id: string;
   fromUid: string;
   toUid: string;
-  status: "pending" | "accepted" | "declined";
+  status: "pending" | "accepted" | "declined" | "withdrawn";
   createdAt: string;
   updatedAt: string;
 };

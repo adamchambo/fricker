@@ -21,6 +21,7 @@ usersRouter.get("/users/search", async (req, res) => {
   const hits = await searchUsernamesByPrefix(q, 20);
   const enriched = [];
   for (const h of hits) {
+    if (h.uid === viewerUid) continue;
     const pub = await getPublicProfile(h.uid);
     if (pub) enriched.push(pub);
   }
