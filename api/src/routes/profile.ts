@@ -51,11 +51,17 @@ profileRouter.post("/profile/public", async (req, res) => {
   try {
     await db.runTransaction(async (tx) => {
       const publicRef = db.collection("usersPublic").doc(uid);
-      const existingPublic = await tx.get(publicRef);
+      const privRef = db.collection("usersPrivate").doc(uid);
+      const usernameRef = db.collection("usernames").doc(usernameLower);
+
+      const [existingPublic, usernameSnap, privSnap] = await Promise.all([
+        tx.get(publicRef),
+        tx.get(usernameRef),
+        tx.get(privRef),
+      ]);
+
       const prevLower = existingPublic.exists ? String(existingPublic.data()?.usernameLower ?? "") : "";
 
-      const usernameRef = db.collection("usernames").doc(usernameLower);
-      const usernameSnap = await tx.get(usernameRef);
       if (usernameSnap.exists && String(usernameSnap.data()?.uid ?? "") !== uid) {
         throw new Error("USERNAME_TAKEN");
       }
@@ -78,8 +84,6 @@ profileRouter.post("/profile/public", async (req, res) => {
         { merge: true },
       );
 
-      const privRef = db.collection("usersPrivate").doc(uid);
-      const privSnap = await tx.get(privRef);
       if (!privSnap.exists) {
         tx.set(privRef, {
           nickname: "",

@@ -148,7 +148,15 @@ export default function MyProfilePage() {
           </label>
           <label className="block text-sm sm:col-span-2">
             <span className="text-[var(--muted)]">Photo URL (optional)</span>
-            <input className={inputClass} type="url" value={photoURL} onChange={(e) => setPhotoURL(e.target.value)} />
+            <input
+              className={inputClass}
+              type="text"
+              inputMode="url"
+              placeholder="Optional — leave blank"
+              autoComplete="off"
+              value={photoURL}
+              onChange={(e) => setPhotoURL(e.target.value)}
+            />
           </label>
         </div>
         <button type="submit" className="mt-4 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white">
