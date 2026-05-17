@@ -20,6 +20,9 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   title: "fricker — the friend picker",
   description: "Pick friends, get ideas, send plans they can accept — fricker is the friend picker for your crew.",
+  icons: {
+    icon: "/favicon.ico",
+  }
 };
 
 export default function RootLayout({
